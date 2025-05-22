@@ -1,4 +1,5 @@
 using EmailSendingApiApp.Data;
+using EmailSendingApiApp.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +10,7 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
 {
     options.SuppressModelStateInvalidFilter = false;
 });
+
 
 
 // Add services to the container.

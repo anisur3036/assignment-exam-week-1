@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using EmailSendingApiApp.Data;
 using EmailSendingApiApp.Models;
+using EmailSendingApiApp.Services;
+using EmailSendingApiApp.ViewModels;
 using MailKit.Net.Smtp;
 using Microsoft.AspNetCore.Mvc;
 using MimeKit;
@@ -21,13 +23,8 @@ namespace EmailSendingApiApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult Register([FromBody] User user)
+        public async Task<IActionResult> Register([FromBody] RegisterUser user)
         {
-            if (user == null || string.IsNullOrEmpty(user.Email) || string.IsNullOrEmpty(user.Password))
-            {
-                return BadRequest("Invalid user data.");
-            }
-
             // Check if the user already exists
             var existingUser = _context.Users.FirstOrDefault(u => u.Email == user.Email);
             if (existingUser != null)
@@ -35,29 +32,43 @@ namespace EmailSendingApiApp.Controllers
                 return Conflict("User already exists.");
             }
 
+            var passwordUtility = new Password();
+            var hashPassword = passwordUtility.HashPassword(user.Password);
+            var newUser = new User
+            {
+                Name = user.Name,
+                Email = user.Email,
+                Password = hashPassword
+            };
             // Add the new user to the database
-            _context.Users.Add(user);
+            _context.Users.Add(newUser);
             _context.SaveChanges();
 
-            // email sending
+            await SendEmailAsync(user.Email, "Registration Confirmation", $"Hello {user.Name},\n\nThank you for registering with us.\n\nBest regards,\nAnisur Rahman");
+
+            return Ok("User registered successfully.");
+        }
+
+        private async Task SendEmailAsync(string toEmail, string subject, string body)
+        {
             var email = new MimeMessage();
-            email.From.Add(MailboxAddress.Parse("anisur3036@gmail.com"));
-            email.To.Add(MailboxAddress.Parse(user.Email));
-            email.Subject = "Registration Confirmation";
+            email.From.Add(MailboxAddress.Parse("anisurlist3@gmail.com"));
+            email.To.Add(MailboxAddress.Parse(toEmail));
+            email.Subject = subject;
             email.Body = new TextPart("plain")
             {
-                Text = $"Hello {user.Name},\n\nThank you for registering with us.\n\nBest regards,\nAnisur Rahman"
+                Text = body
             };
 
             using (var smtp = new SmtpClient())
             {
-                smtp.Connect("smtp.gmail.com", 587, MailKit.Security.SecureSocketOptions.StartTls);
-                smtp.Authenticate("anisurlist3@gmail.com", "vbnc vkdo yiwm gdmx");
-                smtp.Send(email);
-                smtp.Disconnect(true);
+                await smtp.ConnectAsync("smtp.gmail.com", 587, MailKit.Security.SecureSocketOptions.StartTls);
+                await smtp.AuthenticateAsync("anisurlist3@gmail.com", "vbnc vkdo yiwm gdmx");
+                await smtp.SendAsync(email);
+                await smtp.DisconnectAsync(true);
             }
 
-            return Ok("User registered successfully.");
+
         }
 
     }
